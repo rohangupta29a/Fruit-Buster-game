@@ -5,3 +5,42 @@ import time
 import math
 from collections import deque
 import numpy as np
+
+
+# Initialize MediaPipe
+mp_hands = mp.solutions.hands
+mp_drawing = mp.solutions.drawing_utils
+hands = mp_hands.Hands(max_num_hands=1)
+
+# Color palettes
+colors = [(0, 255, 180), (255, 50, 150), (255, 215, 0), (0, 255, 255), (255, 128, 0)]
+
+# Fruit class
+class Fruit:
+    def __init__(self, x, y, velocity):
+        self.x = x
+        self.y = y
+        self.velocity = velocity
+        self.radius = random.randint(25, 35)
+        self.color = random.choice(colors)
+        self.alive = True
+
+    def move(self):
+        self.y += self.velocity
+        if self.y > 480:
+            self.alive = False
+
+    def draw(self, frame):
+        if self.alive:
+            glow_color = tuple(min(255, c + 50) for c in self.color)
+            cv2.circle(frame, (self.x, self.y), self.radius + 10, glow_color, -1)
+            cv2.circle(frame, (self.x, self.y), self.radius, self.color, -1)
+
+# Particle burst effect
+def draw_explosion(frame, x, y):
+    for _ in range(10):
+        angle = random.uniform(0, 2 * math.pi)
+        length = random.randint(10, 30)
+        dx = int(math.cos(angle) * length)
+        dy = int(math.sin(angle) * length)
+        cv2.line(frame, (x, y), (x + dx, y + dy), (0, 0, 255), 2)
