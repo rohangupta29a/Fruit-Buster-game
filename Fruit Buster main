@@ -44,3 +44,42 @@ def draw_explosion(frame, x, y):
         dx = int(math.cos(angle) * length)
         dy = int(math.sin(angle) * length)
         cv2.line(frame, (x, y), (x + dx, y + dy), (0, 0, 255), 2)
+
+# Game variables
+fruits = []
+position_history = deque(maxlen=6)
+last_spawn_time = time.time()
+score = 0
+missed = 0
+frame_width, frame_height = 640, 480
+paused = False
+feedback_msg = ""
+msg_timer = 0
+
+# Start camera
+cap = cv2.VideoCapture(0)
+cap.set(3, frame_width)
+cap.set(4, frame_height)
+
+while True:
+    ret, frame = cap.read()
+    if not ret:
+        break
+
+    frame = cv2.flip(frame, 1)
+    h, w, _ = frame.shape
+
+    # Cool background gradient
+    overlay = frame.copy()
+    for i in range(0, h, 2):
+        alpha = i / h
+        cv2.line(overlay, (0, i), (w, i), (30, int(30 + alpha * 80), int(50 + alpha * 100)), 1)
+    frame = cv2.addWeighted(overlay, 0.4, frame, 0.6, 0)
+
+    if paused:
+        cv2.putText(frame, "PAUSED", (w//2 - 100, h//2), cv2.FONT_HERSHEY_SIMPLEX, 2, (255, 255, 255), 5)
+        cv2.imshow("Fruit Slicer XR", frame)
+        key = cv2.waitKey(1) & 0xFF
+        if key == ord('p'):
+            paused = False
+        continue
