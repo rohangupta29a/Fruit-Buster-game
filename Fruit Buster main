@@ -83,3 +83,100 @@ while True:
         if key == ord('p'):
             paused = False
         continue
+
+    rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    results = hands.process(rgb)
+
+    curr_x, curr_y = None, None
+    swipe = False
+
+    # Hand tracking
+    if results.multi_hand_landmarks:
+        for handLms in results.multi_hand_landmarks:
+            mp_drawing.draw_landmarks(frame, handLms, mp_hands.HAND_CONNECTIONS)
+
+            x = int(handLms.landmark[8].x * w)
+            y = int(handLms.landmark[8].y * h)
+            curr_x, curr_y = x, y
+            position_history.append((x, y))
+            cv2.circle(frame, (x, y), 12, (255, 255, 255), -1)
+
+        # Swipe detection (multi-directional)
+        if len(position_history) >= 2:
+            dx = position_history[-1][0] - position_history[0][0]
+            dy = position_history[-1][1] - position_history[0][1]
+            dist = math.hypot(dx, dy)
+            if dist > 60:
+                swipe = True
+
+    # Spawn fruits
+    if time.time() - last_spawn_time > 1.0:
+        speed = 5 + score // 5
+        new_fruit = Fruit(random.randint(50, w - 50), 0, velocity=speed)
+        fruits.append(new_fruit)
+        last_spawn_time = time.time()
+
+    # Fruit updates
+    for fruit in fruits:
+        fruit.move()
+        fruit.draw(frame)
+
+        if swipe and fruit.alive and curr_x is not None:
+            dist = math.hypot(fruit.x - curr_x, fruit.y - curr_y)
+            if dist < fruit.radius:
+                fruit.alive = False
+                score += 1
+                feedback_msg = random.choice(["SLICED!", "NICE!", "BOOM!", "SLASH!"])
+                msg_timer = time.time()
+                draw_explosion(frame, fruit.x, fruit.y)
+                # play_sound("hit.wav")  # You can implement sound
+
+    # Remove dead fruits
+    for fruit in fruits:
+        if not fruit.alive and fruit.y >= 480:
+            missed += 1
+            feedback_msg = "MISSED!"
+            msg_timer = time.time()
+    fruits = [fruit for fruit in fruits if fruit.alive]
+
+    # Feedback display
+    if feedback_msg and time.time() - msg_timer < 1.0:
+        cv2.putText(frame, feedback_msg, (w//2 - 100, h//2 - 50),
+                    cv2.FONT_HERSHEY_DUPLEX, 1.8, (0, 255, 255), 4)
+
+    # UI - Score and Missed
+    cv2.rectangle(frame, (0, 0), (w, 50), (20, 20, 20), -1)
+    cv2.putText(frame, f"Score: {score}", (10, 35),
+                cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+    cv2.putText(frame, f"Missed: {missed}", (w - 180, 35),
+                cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 100, 255), 2)
+
+    # Game Over
+    if missed >= 15:
+        cv2.putText(frame, "GAME OVER", (w // 2 - 180, h // 2),
+                    cv2.FONT_HERSHEY_COMPLEX, 2, (0, 0, 255), 6)
+        cv2.imshow("Fruit Slicer XR", frame)
+        cv2.waitKey(3000)
+        break
+
+    # Display frame
+    cv2.imshow("Fruit Slicer XR", frame)
+
+    # Handle keypresses
+    key = cv2.waitKey(1) & 0xFF
+    if key == ord('q'):
+        break
+    elif key == ord('p'):
+        paused = True
+    elif key == ord('r'):
+        # Restart game
+        fruits.clear()
+        score = 0
+        missed = 0
+        feedback_msg = ""
+        position_history.clear()
+
+# Cleanup
+cap.release()
+cv2.destroyAllWindows()
+
